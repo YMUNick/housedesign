@@ -472,7 +472,7 @@ function skyTex(stops){
   const t=new THREE.CanvasTexture(cv);t.encoding=THREE.sRGBEncoding;return t;
 }
 const SKY={
-  morning:[[0,"#eae3d4"],[.55,"#ddd2bd"],[1,"#c9bca1"]],
+  morning:[[0,"#d6cdb9"],[.55,"#c5ba9f"],[1,"#afa284"]],
   night:  [[0,"#20263c"],[.55,"#171b2b"],[1,"#0e111c"]],
 };
 /* 早晨／夜晚（預設 night） */
@@ -485,7 +485,7 @@ function setTimeOfDay(mode){
   if(tod==="morning"){
     scene.background=skyTex(SKY.morning);
     scene.fog.color.set(0xe0d7c4);
-    renderer.toneMappingExposure=0.92;                 // 早晨調暗一些
+    renderer.toneMappingExposure=0.84;                 // 早晨再調暗一些
     hemi.color.set(0xfff4e2);hemi.groundColor.set(0xb2a184);hemi.intensity=.55;
     amb.color.set(0xfff6e8);amb.intensity=.13;
     sun.color.set(0xfff0d6);sun.intensity=.92;sun.position.set(-330,560,-360);
@@ -629,7 +629,7 @@ function buildRooms(){
   seg(260,437,480,437);                                // 浴室南牆（無窗）
   seg(480,437,480,0);                                  // 東外牆（主臥右側，無窗）
   seg(250,0,315,0); seg(430,0,480,0);                  // 主臥北外牆（窗洞 315–430）
-  seg(0,-123,232,-123); seg(232,-123,232,0,110);       // 露台矮牆
+  seg(232,-123,232,0,110);                             // 露台右側矮牆（最上方外牆已移除）
   seg(0,0,20,0); seg(140,0,250,0);                     // 露台落地窗兩側
   // ── 對外窗（僅主臥上方北窗）──
   windowPane(315,0,430,0, 95,215);                     // 主臥北窗
