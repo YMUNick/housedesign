@@ -81,6 +81,17 @@ svg{display:block;width:100%;height:auto;touch-action:none}
 .read .note{font-size:.65rem;color:var(--muted);margin-top:4px;font-weight:300}
 footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);
   font-size:.72rem;line-height:1.9;font-weight:300}
+
+/* custom furniture input */
+.custom{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.custom input[type=text],.custom input[type=number]{font-family:inherit;font-size:.78rem;
+  padding:8px 10px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+.custom input[type=text]{width:120px}
+.custom input[type=number]{width:90px}
+.custom input[type=color]{width:38px;height:36px;border:1px solid var(--line);background:#fff;
+  padding:2px;cursor:pointer}
+.custom input:focus{outline:none;border-color:var(--walnut)}
+.custom .unit{font-size:.7rem;color:var(--muted)}
 </style>
 
 <div class="wrap">
@@ -115,6 +126,15 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);color:v
 
 <div class="paneltitle">新增傢俱</div>
 <div class="pal" id="pal"></div>
+
+<div class="paneltitle">自訂傢俱（自行輸入長寬）</div>
+<div class="custom">
+  <input id="cName" type="text" placeholder="名稱（選填）" maxlength="8">
+  <input id="cW" type="number" placeholder="寬" min="10" max="480" step="5"><span class="unit">cm 寬</span>
+  <input id="cD" type="number" placeholder="深" min="10" max="480" step="5"><span class="unit">cm 深</span>
+  <input id="cColor" type="color" value="#8e8377" title="顏色">
+  <button id="cAdd" class="fb">＋ 加入配置</button>
+</div>
 
 <div class="paneltitle">目前配置（點選後可旋轉／刪除）</div>
 <div class="fbtns" id="fbtns"></div>
@@ -185,8 +205,11 @@ let F, NID, sel=null, S=1, OX=0, OY=0, showDims=false;
 const STORE_KEY="housedesign.layout.v1";
 function applyState(st){
   if(st&&Array.isArray(st.F)&&st.F.length){
-    F=st.F.map(f=>({id:+f.id,t:f.t,x:+f.x,y:+f.y,rot:((+f.rot||0)%360+360)%360}))
-          .filter(f=>CATALOG[f.t]);
+    F=st.F.map(f=>{
+      const o={id:+f.id,t:f.t,x:+f.x,y:+f.y,rot:((+f.rot||0)%360+360)%360};
+      if(f.t==="custom"){o.n=f.n||"自訂";o.w=+f.w;o.d=+f.d;o.c=f.c||"#8e8377";}
+      return o;
+    }).filter(f=>f.t==="custom"?(f.w>0&&f.d>0):CATALOG[f.t]);
     if(!F.length)F=DEFAULT_F.map(f=>({...f}));
     NID=(st.NID&&+st.NID>0)?+st.NID:Math.max(0,...F.map(f=>f.id))+1;
     if(typeof st.showDims==="boolean")showDims=st.showDims;
@@ -209,8 +232,11 @@ function flashHint(msg,bad){
   e.textContent=msg;e.style.color=bad?"var(--bad)":"var(--good)";
   clearTimeout(hintT);hintT=setTimeout(()=>{e.textContent="";},2200);
 }
-const cat=f=>CATALOG[f.t];
+const cat=f=>f.t==="custom"?{n:f.n,w:+f.w,d:+f.d,c:f.c}:CATALOG[f.t];
 const bb=f=>{const c=cat(f);return f.rot%180?{w:c.d,d:c.w}:{w:c.w,d:c.d};};
+const isDark=hex=>{if(typeof hex!=="string"||hex[0]!=="#")return false;
+  const n=parseInt(hex.slice(1),16),r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+  return .299*r+.587*g+.114*b<140;};
 
 /* ═══════════ 2D ═══════════ */
 const svg=document.getElementById("plan"), NS="http://www.w3.org/2000/svg";
@@ -324,7 +350,7 @@ function drawF(f,X,Y){
         fill:c.c==="#232326"?"#3a3a3f":"#b3a894"}));
     }
   }
-  const dark=["#232326","#5a3729","#6b4433","#7d5340"].includes(c.c);
+  const dark=isDark(c.c);
   if(pw>36&&ph>16){
     const t=el("text",{x:px+pw/2,y:py+ph/2+4,fill:dark?"#fff":"#4a423b","font-size":10.5,
       "text-anchor":"middle","font-family":"Noto Sans TC","pointer-events":"none","font-weight":500});
@@ -361,6 +387,20 @@ document.getElementById("pal").querySelectorAll("button").forEach(b=>b.onclick=(
   F.push({id:NID++,t:b.dataset.t,x:100,y:200,rot:0});
   sel=NID-1;draw2d();btns();sync3d();saveState();
 });
+/* 自訂傢俱 */
+document.getElementById("cAdd").onclick=()=>{
+  const round5=v=>Math.round(v/5)*5;
+  const w=round5(+document.getElementById("cW").value);
+  const d=round5(+document.getElementById("cD").value);
+  if(!(w>=10&&w<=480&&d>=10&&d<=480)){flashHint("長寬請輸入 10–480 cm",true);return;}
+  const n=(document.getElementById("cName").value||"").trim().slice(0,8)||"自訂";
+  const c=document.getElementById("cColor").value||"#8e8377";
+  F.push({id:NID++,t:"custom",n,w,d,c,x:100,y:200,rot:0});
+  sel=NID-1;draw2d();btns();sync3d();saveState();
+  document.getElementById("cName").value="";
+  document.getElementById("cW").value="";document.getElementById("cD").value="";
+  flashHint("已加入「"+n+"」"+w+"×"+d);
+};
 const fbx=document.getElementById("fbtns");
 function btns(){
   fbx.innerHTML=F.map(f=>{const c=cat(f),b=bb(f);
@@ -558,6 +598,9 @@ function build3d(f){
       new THREE.MeshStandardMaterial({color:0xf3e8d2,roughness:.7,side:THREE.DoubleSide}));
     sh.position.y=140;sh.castShadow=true;add(sh);
     const gl=new THREE.PointLight(0xffdca8,.5,220);gl.position.y=132;add(gl);
+  }else{ // 自訂傢俱：以概念箱體呈現
+    const h=Math.min(90,Math.max(25,Math.round(Math.min(c.w,c.d)*.7)));
+    add(box(c.w,h,c.d,M(c.c,.8),0,h/2,0));
   }
   return g;
 }
