@@ -117,6 +117,7 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);color:v
 <div class="stage view3d" id="stage3d">
   <canvas id="c3d"></canvas>
   <div class="hud">
+    <button id="todBtn" title="早晨／夜晚">🌙</button>
     <button id="zin" title="拉近">＋</button>
     <button id="zout" title="拉遠">－</button>
     <button id="zreset" title="回到預設視角">⌂</button>
@@ -208,7 +209,7 @@ const DEFAULT_F=[
   {id:5,t:"bed",  x:300,y:60, rot:0},
   {id:6,t:"plant",x:5,  y:245,rot:0},
 ];
-let F, NID, sel=null, S=1, OX=0, OY=0, showDims=false;
+let F, NID, sel=null, S=1, OX=0, OY=0, showDims=false, tod="night";
 
 /* ═══════════ 存檔（localStorage + TXT 匯出／匯入）═══════════ */
 const STORE_KEY="housedesign.layout.v1";
@@ -225,9 +226,10 @@ function applyState(st){
   }else{
     F=DEFAULT_F.map(f=>({...f})); NID=7; showDims=false;
   }
+  tod=(st&&(st.tod==="morning"||st.tod==="night"))?st.tod:"night";
 }
 function saveState(){
-  try{localStorage.setItem(STORE_KEY,JSON.stringify({v:1,F,NID,showDims}));}
+  try{localStorage.setItem(STORE_KEY,JSON.stringify({v:1,F,NID,showDims,tod}));}
   catch(e){}
 }
 function loadState(){
@@ -455,14 +457,44 @@ function stats(){
 
 /* ═══════════ 3D ═══════════ */
 let scene,camera,renderer,furnGroup,az=-.7,pol=1.05,dist=620;
+let sun,warm,hemi,amb;
 const TGT=new THREE.Vector3(230,60,200);
 
-function skyTex(){
+function skyTex(stops){
   const cv=document.createElement("canvas");cv.width=4;cv.height=256;
   const ctx=cv.getContext("2d"),g=ctx.createLinearGradient(0,0,0,256);
-  g.addColorStop(0,"#f2ecdf");g.addColorStop(.55,"#e6dcca");g.addColorStop(1,"#d3c6ad");
+  stops.forEach(([o,c])=>g.addColorStop(o,c));
   ctx.fillStyle=g;ctx.fillRect(0,0,4,256);
   const t=new THREE.CanvasTexture(cv);t.encoding=THREE.sRGBEncoding;return t;
+}
+const SKY={
+  morning:[[0,"#eae3d4"],[.55,"#ddd2bd"],[1,"#c9bca1"]],
+  night:  [[0,"#20263c"],[.55,"#171b2b"],[1,"#0e111c"]],
+};
+/* 早晨／夜晚（預設 night） */
+function setTimeOfDay(mode){
+  tod=(mode==="morning")?"morning":"night";
+  const b=document.getElementById("todBtn");
+  if(b){b.textContent=tod==="night"?"🌙":"☀️";
+    b.title=tod==="night"?"目前：夜晚（點按切早晨）":"目前：早晨（點按切夜晚）";}
+  if(!scene)return;
+  if(tod==="morning"){
+    scene.background=skyTex(SKY.morning);
+    scene.fog.color.set(0xe0d7c4);
+    renderer.toneMappingExposure=0.92;                 // 早晨調暗一些
+    hemi.color.set(0xfff4e2);hemi.groundColor.set(0xb2a184);hemi.intensity=.55;
+    amb.color.set(0xfff6e8);amb.intensity=.13;
+    sun.color.set(0xfff0d6);sun.intensity=.92;sun.position.set(-330,560,-360);
+    warm.color.set(0xffd6a0);warm.intensity=.28;
+  }else{
+    scene.background=skyTex(SKY.night);
+    scene.fog.color.set(0x141826);
+    renderer.toneMappingExposure=1.0;
+    hemi.color.set(0x33406a);hemi.groundColor.set(0x0e1018);hemi.intensity=.30;
+    amb.color.set(0x2a3350);amb.intensity=.12;
+    sun.color.set(0x9fb4e0);sun.intensity=.38;sun.position.set(260,600,-260);
+    warm.color.set(0xffca85);warm.intensity=1.05;      // 夜晚室內暖光更明顯
+  }
 }
 
 function init3d(){
@@ -474,13 +506,13 @@ function init3d(){
   renderer.toneMapping=THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure=1.12;
   scene=new THREE.Scene();
-  scene.background=skyTex();
-  scene.fog=new THREE.Fog(0xe6ddcb,1500,2800);
+  scene.background=skyTex(SKY.night);
+  scene.fog=new THREE.Fog(0x141826,1500,2800);
   camera=new THREE.PerspectiveCamera(50,1,1,5000);
 
-  scene.add(new THREE.HemisphereLight(0xfff4e2,0xb2a184,.78));
-  scene.add(new THREE.AmbientLight(0xfff6e8,.16));
-  const sun=new THREE.DirectionalLight(0xfff1d8,1.28);
+  hemi=new THREE.HemisphereLight(0xfff4e2,0xb2a184,.6);scene.add(hemi);
+  amb=new THREE.AmbientLight(0xfff6e8,.14);scene.add(amb);
+  sun=new THREE.DirectionalLight(0xfff1d8,1.0);
   sun.position.set(-330,580,-360);sun.castShadow=true;
   sun.shadow.mapSize.set(2048,2048);
   sun.shadow.camera.left=-650;sun.shadow.camera.right=650;
@@ -488,8 +520,9 @@ function init3d(){
   sun.shadow.camera.near=80;sun.shadow.camera.far=1700;
   sun.shadow.bias=-0.0004;sun.shadow.radius=6;
   scene.add(sun);
-  const warm=new THREE.PointLight(0xffd6a0,.5,950);
+  warm=new THREE.PointLight(0xffd6a0,.5,950);
   warm.position.set(125,230,300);scene.add(warm);
+  setTimeOfDay(tod);
 
   buildRooms();
   furnGroup=new THREE.Group();scene.add(furnGroup);
@@ -517,6 +550,8 @@ function init3d(){
   document.getElementById("zin").onclick=()=>{dist=Math.max(180,dist-90);place();};
   document.getElementById("zout").onclick=()=>{dist=Math.min(1400,dist+90);place();};
   document.getElementById("zreset").onclick=()=>{az=-.7;pol=1.05;dist=620;place();};
+  document.getElementById("todBtn").onclick=()=>{
+    setTimeOfDay(tod==="night"?"morning":"night");saveState();};
 
   place();resize();animate();
   window.addEventListener("resize",resize);
@@ -728,7 +763,7 @@ importFile.onchange=e=>{
     try{
       const st=JSON.parse(rd.result);
       if(!st||!Array.isArray(st.F))throw 0;
-      applyState(st); sel=null;
+      applyState(st); sel=null; setTimeOfDay(tod);
       dimBtn.textContent=showDims?"📏 隱藏尺寸":"📏 顯示尺寸";
       dimBtn.style.color=showDims?"#b5432f":"";
       draw2d();btns();sync3d();saveState();
@@ -740,7 +775,7 @@ importFile.onchange=e=>{
 document.getElementById("resetBtn").onclick=()=>{
   if(!confirm("確定回復成預設配置？目前的擺設會被清除。"))return;
   try{localStorage.removeItem(STORE_KEY);}catch(e){}
-  applyState(null); sel=null;
+  applyState(null); sel=null; setTimeOfDay(tod);
   dimBtn.textContent="📏 顯示尺寸"; dimBtn.style.color="";
   draw2d();btns();sync3d();
   flashHint("已回復預設");
@@ -749,5 +784,6 @@ document.getElementById("resetBtn").onclick=()=>{
 /* 啟動：先從快取還原，再繪製 */
 loadState();
 if(showDims){dimBtn.textContent="📏 隱藏尺寸";dimBtn.style.color="#b5432f";}
+setTimeOfDay(tod);
 draw2d();btns();
 </script>
