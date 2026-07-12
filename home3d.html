@@ -119,6 +119,15 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);color:v
 <div class="paneltitle">目前配置（點選後可旋轉／刪除）</div>
 <div class="fbtns" id="fbtns"></div>
 
+<div class="paneltitle">存檔 · 匯出／匯入（自動記住於此瀏覽器）</div>
+<div class="fbtns">
+  <button class="fb" id="exportBtn">⬇ 匯出設定（TXT）</button>
+  <button class="fb" id="importBtn">⬆ 匯入設定（TXT）</button>
+  <button class="fb" id="resetBtn">↺ 回復預設</button>
+  <input type="file" id="importFile" accept=".txt,text/plain" style="display:none">
+  <span id="saveHint" style="font-size:.7rem;color:var(--muted);align-self:center"></span>
+</div>
+
 <div class="read">
   <div><div class="k">沙發↔電視 走道</div><div class="v" id="walk">—</div>
     <div class="note">最少 60cm</div></div>
@@ -162,7 +171,7 @@ const CATALOG={
   plant: {n:"綠植",     w:45, d:45, c:"#6e8b5e"},
   lamp:  {n:"立燈",     w:35, d:35, c:"#b3873f"},
 };
-let F=[
+const DEFAULT_F=[
   {id:1,t:"sofa", x:0,  y:45, rot:90},
   {id:2,t:"tv",   x:220,y:30, rot:90},
   {id:3,t:"tea",  x:95, y:105,rot:0},
@@ -170,7 +179,36 @@ let F=[
   {id:5,t:"bed",  x:300,y:60, rot:0},
   {id:6,t:"plant",x:5,  y:245,rot:0},
 ];
-let NID=7, sel=null, S=1, OX=0, OY=0, showDims=false;
+let F, NID, sel=null, S=1, OX=0, OY=0, showDims=false;
+
+/* ═══════════ 存檔（localStorage + TXT 匯出／匯入）═══════════ */
+const STORE_KEY="housedesign.layout.v1";
+function applyState(st){
+  if(st&&Array.isArray(st.F)&&st.F.length){
+    F=st.F.map(f=>({id:+f.id,t:f.t,x:+f.x,y:+f.y,rot:((+f.rot||0)%360+360)%360}))
+          .filter(f=>CATALOG[f.t]);
+    if(!F.length)F=DEFAULT_F.map(f=>({...f}));
+    NID=(st.NID&&+st.NID>0)?+st.NID:Math.max(0,...F.map(f=>f.id))+1;
+    if(typeof st.showDims==="boolean")showDims=st.showDims;
+  }else{
+    F=DEFAULT_F.map(f=>({...f})); NID=7; showDims=false;
+  }
+}
+function saveState(){
+  try{localStorage.setItem(STORE_KEY,JSON.stringify({v:1,F,NID,showDims}));}
+  catch(e){}
+}
+function loadState(){
+  try{const raw=localStorage.getItem(STORE_KEY);
+    applyState(raw?JSON.parse(raw):null);}
+  catch(e){applyState(null);}
+}
+let hintT;
+function flashHint(msg,bad){
+  const e=document.getElementById("saveHint");if(!e)return;
+  e.textContent=msg;e.style.color=bad?"var(--bad)":"var(--good)";
+  clearTimeout(hintT);hintT=setTimeout(()=>{e.textContent="";},2200);
+}
 const cat=f=>CATALOG[f.t];
 const bb=f=>{const c=cat(f);return f.rot%180?{w:c.d,d:c.w}:{w:c.w,d:c.d};};
 
@@ -311,7 +349,7 @@ svg.addEventListener("pointermove",e=>{
   draw2d();
 });
 ["pointerup","pointercancel"].forEach(v=>svg.addEventListener(v,()=>{
-  if(drag){drag=null;sync3d();}
+  if(drag){drag=null;sync3d();saveState();}
 }));
 function pt(e){const r=svg.getBoundingClientRect(),sc=760/r.width;
   return{x:((e.clientX-r.left)*sc-OX)/S,y:((e.clientY-r.top)*sc-OY)/S};}
@@ -321,7 +359,7 @@ document.getElementById("pal").innerHTML=Object.entries(CATALOG).map(([k,c])=>
   `<button data-t="${k}">＋ ${c.n} ${c.w}×${c.d}</button>`).join("");
 document.getElementById("pal").querySelectorAll("button").forEach(b=>b.onclick=()=>{
   F.push({id:NID++,t:b.dataset.t,x:100,y:200,rot:0});
-  sel=NID-1;draw2d();btns();sync3d();
+  sel=NID-1;draw2d();btns();sync3d();saveState();
 });
 const fbx=document.getElementById("fbtns");
 function btns(){
@@ -337,9 +375,9 @@ function btns(){
   if(r)r.onclick=()=>{const f=F.find(x=>x.id===sel);if(!f)return;
     f.rot=(f.rot+90)%360;const b=bb(f);
     f.x=Math.min(BOUND.x2-b.w,f.x);f.y=Math.min(BOUND.y2-b.d,f.y);
-    draw2d();btns();sync3d();};
+    draw2d();btns();sync3d();saveState();};
   const d=document.getElementById("del");
-  if(d)d.onclick=()=>{F=F.filter(x=>x.id!==sel);sel=null;draw2d();btns();sync3d();};
+  if(d)d.onclick=()=>{F=F.filter(x=>x.id!==sel);sel=null;draw2d();btns();sync3d();saveState();};
 }
 
 /* stats */
@@ -551,8 +589,50 @@ dimBtn.onclick=()=>{
   dimBtn.textContent=showDims?"📏 隱藏尺寸":"📏 顯示尺寸";
   dimBtn.style.color=showDims?"#b5432f":"";
   if(showDims)t2.click();   // 尺寸只在 2D 顯示，自動切回平面
-  draw2d();
+  draw2d();saveState();
 };
 
+/* ── 匯出／匯入／回復 ── */
+document.getElementById("exportBtn").onclick=()=>{
+  const data=JSON.stringify({v:1,app:"housedesign",savedAt:new Date().toISOString(),
+    F,NID,showDims},null,2);
+  const blob=new Blob([data],{type:"text/plain;charset=utf-8"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url; a.download="房屋設計_"+new Date().toISOString().slice(0,10)+".txt";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  flashHint("已匯出 TXT");
+};
+const importFile=document.getElementById("importFile");
+document.getElementById("importBtn").onclick=()=>importFile.click();
+importFile.onchange=e=>{
+  const file=e.target.files[0]; if(!file)return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const st=JSON.parse(rd.result);
+      if(!st||!Array.isArray(st.F))throw 0;
+      applyState(st); sel=null;
+      dimBtn.textContent=showDims?"📏 隱藏尺寸":"📏 顯示尺寸";
+      dimBtn.style.color=showDims?"#b5432f":"";
+      draw2d();btns();sync3d();saveState();
+      flashHint("已匯入設定");
+    }catch(err){flashHint("檔案格式不正確",true);}
+  };
+  rd.readAsText(file); importFile.value="";
+};
+document.getElementById("resetBtn").onclick=()=>{
+  if(!confirm("確定回復成預設配置？目前的擺設會被清除。"))return;
+  try{localStorage.removeItem(STORE_KEY);}catch(e){}
+  applyState(null); sel=null;
+  dimBtn.textContent="📏 顯示尺寸"; dimBtn.style.color="";
+  draw2d();btns();sync3d();
+  flashHint("已回復預設");
+};
+
+/* 啟動：先從快取還原，再繪製 */
+loadState();
+if(showDims){dimBtn.textContent="📏 隱藏尺寸";dimBtn.style.color="#b5432f";}
 draw2d();btns();
 </script>
