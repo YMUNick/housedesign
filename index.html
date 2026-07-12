@@ -457,23 +457,38 @@ function stats(){
 let scene,camera,renderer,furnGroup,az=-.7,pol=1.05,dist=620;
 const TGT=new THREE.Vector3(230,60,200);
 
+function skyTex(){
+  const cv=document.createElement("canvas");cv.width=4;cv.height=256;
+  const ctx=cv.getContext("2d"),g=ctx.createLinearGradient(0,0,0,256);
+  g.addColorStop(0,"#f2ecdf");g.addColorStop(.55,"#e6dcca");g.addColorStop(1,"#d3c6ad");
+  ctx.fillStyle=g;ctx.fillRect(0,0,4,256);
+  const t=new THREE.CanvasTexture(cv);t.encoding=THREE.sRGBEncoding;return t;
+}
+
 function init3d(){
   const cv=document.getElementById("c3d");
   renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true});
   renderer.shadowMap.enabled=true;
+  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  renderer.outputEncoding=THREE.sRGBEncoding;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.12;
   scene=new THREE.Scene();
-  scene.background=new THREE.Color(0xe9e4d8);
-  scene.fog=new THREE.Fog(0xe9e4d8,1400,2600);
-  camera=new THREE.PerspectiveCamera(52,1,1,5000);
+  scene.background=skyTex();
+  scene.fog=new THREE.Fog(0xe6ddcb,1500,2800);
+  camera=new THREE.PerspectiveCamera(50,1,1,5000);
 
-  scene.add(new THREE.AmbientLight(0xfff6e8,.55));
-  const sun=new THREE.DirectionalLight(0xfff2dd,.75);
-  sun.position.set(-300,500,-400);sun.castShadow=true;
-  sun.shadow.mapSize.set(1024,1024);
-  sun.shadow.camera.left=-600;sun.shadow.camera.right=600;
-  sun.shadow.camera.top=600;sun.shadow.camera.bottom=-600;
+  scene.add(new THREE.HemisphereLight(0xfff4e2,0xb2a184,.78));
+  scene.add(new THREE.AmbientLight(0xfff6e8,.16));
+  const sun=new THREE.DirectionalLight(0xfff1d8,1.28);
+  sun.position.set(-330,580,-360);sun.castShadow=true;
+  sun.shadow.mapSize.set(2048,2048);
+  sun.shadow.camera.left=-650;sun.shadow.camera.right=650;
+  sun.shadow.camera.top=650;sun.shadow.camera.bottom=-650;
+  sun.shadow.camera.near=80;sun.shadow.camera.far=1700;
+  sun.shadow.bias=-0.0004;sun.shadow.radius=6;
   scene.add(sun);
-  const warm=new THREE.PointLight(0xffd9a8,.5,900);
+  const warm=new THREE.PointLight(0xffd6a0,.5,950);
   warm.position.set(125,230,300);scene.add(warm);
 
   buildRooms();
@@ -521,7 +536,10 @@ function resize(){
 }
 function animate(){requestAnimationFrame(animate);renderer.render(scene,camera);}
 
-const M=(c,r=.85)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:.04});
+const M=(c,r=.85)=>new THREE.MeshStandardMaterial(
+  {color:new THREE.Color(c).convertSRGBToLinear(),roughness:r,metalness:.04});
+const Mm=(c,r=.3)=>new THREE.MeshStandardMaterial(
+  {color:new THREE.Color(c).convertSRGBToLinear(),roughness:r,metalness:.9});
 function box(w,h,d,mat,x,y,z){
   const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
   m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;return m;}
@@ -553,7 +571,8 @@ function buildRooms(){
   seg(0,0,20,0); seg(140,0,250,0);                     // 露台落地窗兩側
   // 玻璃
   const glass=new THREE.Mesh(new THREE.BoxGeometry(120,WALL_H-20,4),
-    new THREE.MeshStandardMaterial({color:0xbfd4d8,transparent:true,opacity:.28,roughness:.1}));
+    new THREE.MeshStandardMaterial({color:new THREE.Color(0xbfd4d8).convertSRGBToLinear(),
+      transparent:true,opacity:.26,roughness:.08,metalness:.25}));
   glass.position.set(80,(WALL_H-20)/2,0);scene.add(glass);
   // 隔間（主臥門 150–230 · 浴室門 370–437 皆留洞）
   seg(260,0,260,150); seg(260,230,260,370);
@@ -596,15 +615,17 @@ function build3d(f){
     add(box(50,6,36,M(0xdad2c2,.9),35,30,-c.d/2+30));
   }else if(f.t==="ward"){
     add(box(c.w,200,c.d,M(MAT.walnut,.6),0,100,0));
-    add(box(1.5,180,1.5,M(MAT.brass,.3),0,100,c.d/2+.8));
+    add(box(1.5,180,1.5,Mm(MAT.brass),0,100,c.d/2+.8));
   }else if(f.t==="plant"){
     add(cyl(16,26,M(0xcfc6b4,.9),0,13,0));
     const lv=new THREE.Mesh(new THREE.SphereGeometry(24,14,12),M(MAT.sage,.95));
     lv.position.y=58;lv.scale.y=1.5;lv.castShadow=true;add(lv);
   }else if(f.t==="lamp"){
-    add(cyl(1.8,140,M(MAT.brass,.35),0,70,0,12));
+    add(cyl(1.8,140,Mm(MAT.brass),0,70,0,12));
     const sh=new THREE.Mesh(new THREE.ConeGeometry(17,20,22,1,true),
-      new THREE.MeshStandardMaterial({color:0xf3e8d2,roughness:.7,side:THREE.DoubleSide}));
+      new THREE.MeshStandardMaterial({color:new THREE.Color(0xf3e8d2).convertSRGBToLinear(),
+        roughness:.7,side:THREE.DoubleSide,emissive:new THREE.Color(0xffca82).convertSRGBToLinear(),
+        emissiveIntensity:.55}));
     sh.position.y=140;sh.castShadow=true;add(sh);
     const gl=new THREE.PointLight(0xffdca8,.5,220);gl.position.y=132;add(gl);
   }else if(f.t==="desk"){
@@ -632,15 +653,15 @@ function build3d(f){
   }else if(f.t==="dress"){
     const m=M(MAT.walnut,.6),H=85;
     add(box(c.w,H,c.d,m,0,H/2,0));                        // 斗櫃
-    for(let i=0;i<3;i++)add(box(24,2,2,M(MAT.brass,.3),0,20+i*24,c.d/2+1)); // 把手
+    for(let i=0;i<3;i++)add(box(24,2,2,Mm(MAT.brass),0,20+i*24,c.d/2+1)); // 把手
   }else if(f.t==="night"){
     const m=M(MAT.walnutLt,.6),H=42;
     add(box(c.w,H,c.d,m,0,H/2,0));                        // 床頭櫃
-    add(box(16,2,2,M(MAT.brass,.3),0,H*.6,c.d/2+1));
+    add(box(16,2,2,Mm(MAT.brass),0,H*.6,c.d/2+1));
   }else if(f.t==="fridge"){
     const m=M(0xe9e4d8,.35),H=175;
     add(box(c.w,H,c.d,m,0,H/2,0));                        // 冰箱
-    add(box(3,H-14,3,M(0xbfb8a8,.4),c.w/2-8,H/2,c.d/2+1)); // 直立把手
+    add(box(3,H-14,3,Mm(0xbfb8a8,.4),c.w/2-8,H/2,c.d/2+1)); // 直立把手
     add(box(c.w,1.5,c.d+.5,M(0xcfc8ba,.5),0,H*.62,0));   // 上下門縫
   }else if(f.t==="washer"){
     const m=M(0xf0ede6,.35),H=85;
