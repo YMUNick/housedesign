@@ -485,19 +485,21 @@ function setTimeOfDay(mode){
   if(tod==="morning"){
     scene.background=skyTex(SKY.morning);
     scene.fog.color.set(0xe0d7c4);
-    renderer.toneMappingExposure=0.84;                 // 早晨再調暗一些
+    renderer.toneMappingExposure=0.84;                 // 早晨
     hemi.color.set(0xfff4e2);hemi.groundColor.set(0xb2a184);hemi.intensity=.55;
     amb.color.set(0xfff6e8);amb.intensity=.13;
     sun.color.set(0xfff0d6);sun.intensity=.92;sun.position.set(-330,560,-360);
+    sun.castShadow=true;                               // 早晨保留光影
     warm.color.set(0xffd6a0);warm.intensity=.28;
   }else{
     scene.background=skyTex(SKY.night);
     scene.fog.color.set(0x141826);
-    renderer.toneMappingExposure=1.0;
-    hemi.color.set(0x33406a);hemi.groundColor.set(0x0e1018);hemi.intensity=.30;
-    amb.color.set(0x2a3350);amb.intensity=.12;
-    sun.color.set(0x9fb4e0);sun.intensity=.38;sun.position.set(260,600,-260);
-    warm.color.set(0xffca85);warm.intensity=1.05;      // 夜晚室內暖光更明顯
+    renderer.toneMappingExposure=0.88;                 // 夜晚再調暗一點
+    hemi.color.set(0x3a4770);hemi.groundColor.set(0x14161f);hemi.intensity=.5;
+    amb.color.set(0x33406a);amb.intensity=.32;         // 平均照明（無光影）
+    sun.color.set(0x9fb4e0);sun.intensity=.12;sun.position.set(260,600,-260);
+    sun.castShadow=false;                              // 夜晚關閉陰影／方向光影
+    warm.color.set(0xffca85);warm.intensity=1.0;       // 保留室內暖光
   }
 }
 
