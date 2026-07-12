@@ -190,6 +190,15 @@ const CATALOG={
   ward:  {n:"衣櫃",     w:120,d:60, c:"#5a3729"},
   plant: {n:"綠植",     w:45, d:45, c:"#6e8b5e"},
   lamp:  {n:"立燈",     w:35, d:35, c:"#b3873f"},
+  desk:  {n:"書桌",     w:140,d:60, c:"#7d5340"},
+  chair: {n:"餐椅",     w:45, d:48, c:"#5a3729"},
+  arm:   {n:"扶手椅",   w:75, d:80, c:"#c9bda8"},
+  shelf: {n:"書櫃",     w:90, d:30, c:"#5a3729"},
+  dress: {n:"斗櫃",     w:100,d:45, c:"#5a3729"},
+  night: {n:"床頭櫃",   w:45, d:40, c:"#7d5340"},
+  fridge:{n:"冰箱",     w:65, d:65, c:"#e9e4d8"},
+  washer:{n:"洗衣機",   w:60, d:60, c:"#f0ede6"},
+  rug:   {n:"地毯",     w:200,d:140,c:"#c9a97f"},
 };
 const DEFAULT_F=[
   {id:1,t:"sofa", x:0,  y:45, rot:90},
@@ -598,6 +607,48 @@ function build3d(f){
       new THREE.MeshStandardMaterial({color:0xf3e8d2,roughness:.7,side:THREE.DoubleSide}));
     sh.position.y=140;sh.castShadow=true;add(sh);
     const gl=new THREE.PointLight(0xffdca8,.5,220);gl.position.y=132;add(gl);
+  }else if(f.t==="desk"){
+    const top=M(MAT.walnutLt,.5),lg=M(MAT.walnut,.6),lh=72;
+    add(box(c.w,4,c.d,top,0,74,0));                       // 桌面
+    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>
+      add(box(5,lh,5,lg,sx*(c.w/2-4),lh/2,sz*(c.d/2-4)))); // 四腳
+  }else if(f.t==="chair"){
+    const m=M(MAT.walnut,.6),lh=42;
+    add(box(c.w,4,c.d,m,0,44,0));                         // 座面
+    add(box(c.w,40,5,m,0,64,-c.d/2+3));                   // 椅背
+    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>
+      add(box(4,lh,4,m,sx*(c.w/2-4),lh/2,sz*(c.d/2-4))));
+  }else if(f.t==="arm"){
+    const m=M(MAT.linen,.9);                              // 單人扶手椅
+    add(box(c.w,22,c.d,m,0,17,0));
+    add(box(c.w,16,c.d-12,m,0,34,6));
+    add(box(c.w,40,16,m,0,54,-c.d/2+8));
+    add(box(12,32,c.d,m,-c.w/2+6,42,0));
+    add(box(12,32,c.d,m,c.w/2-6,42,0));
+  }else if(f.t==="shelf"){
+    const m=M(MAT.walnut,.6),H=180;
+    add(box(c.w,H,c.d,m,0,H/2,0));                        // 書櫃本體
+    for(let i=1;i<4;i++)add(box(c.w-3,2,c.d-2,M(MAT.walnutLt,.5),0,H*i/4,1)); // 層板
+  }else if(f.t==="dress"){
+    const m=M(MAT.walnut,.6),H=85;
+    add(box(c.w,H,c.d,m,0,H/2,0));                        // 斗櫃
+    for(let i=0;i<3;i++)add(box(24,2,2,M(MAT.brass,.3),0,20+i*24,c.d/2+1)); // 把手
+  }else if(f.t==="night"){
+    const m=M(MAT.walnutLt,.6),H=42;
+    add(box(c.w,H,c.d,m,0,H/2,0));                        // 床頭櫃
+    add(box(16,2,2,M(MAT.brass,.3),0,H*.6,c.d/2+1));
+  }else if(f.t==="fridge"){
+    const m=M(0xe9e4d8,.35),H=175;
+    add(box(c.w,H,c.d,m,0,H/2,0));                        // 冰箱
+    add(box(3,H-14,3,M(0xbfb8a8,.4),c.w/2-8,H/2,c.d/2+1)); // 直立把手
+    add(box(c.w,1.5,c.d+.5,M(0xcfc8ba,.5),0,H*.62,0));   // 上下門縫
+  }else if(f.t==="washer"){
+    const m=M(0xf0ede6,.35),H=85;
+    add(box(c.w,H,c.d,m,0,H/2,0));                        // 洗衣機
+    const door=cyl(17,3,M(0x9fb0b4,.2),0,H*.5,c.d/2,24);
+    door.rotation.x=Math.PI/2;add(door);                 // 圓形艙門
+  }else if(f.t==="rug"){
+    add(box(c.w,1,c.d,M(c.c,.95),0,.5,0));                // 地毯（平鋪）
   }else{ // 自訂傢俱：以概念箱體呈現
     const h=Math.min(90,Math.max(25,Math.round(Math.min(c.w,c.d)*.7)));
     add(box(c.w,h,c.d,M(c.c,.8),0,h/2,0));
