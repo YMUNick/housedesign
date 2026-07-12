@@ -200,6 +200,10 @@ const CATALOG={
   fridge:{n:"冰箱",     w:65, d:65, c:"#e9e4d8"},
   washer:{n:"洗衣機",   w:60, d:60, c:"#f0ede6"},
   rug:   {n:"地毯",     w:200,d:140,c:"#c9a97f"},
+  toilet:{n:"馬桶",     w:40, d:65, c:"#fdfaf2"},
+  basin: {n:"洗手台",   w:60, d:45, c:"#fdfaf2"},
+  shower:{n:"乾濕分離淋浴間", w:90,d:90, c:"#bcd2d8"},
+  tub:   {n:"浴缸",     w:160,d:75, c:"#fdfaf2"},
 };
 const DEFAULT_F=[
   {id:1,t:"sofa", x:0,  y:45, rot:90},
@@ -618,20 +622,17 @@ function buildRooms(){
     const len=Math.hypot(x2-x1,z2-z1);
     const m=box(len,h,WALL_T,wallM,(x1+x2)/2,h/2,(z1+z2)/2);
     m.rotation.y=-Math.atan2(z2-z1,x2-x1);scene.add(m);};
-  // 外牆（入口在正下方：南牆 120–210 留門洞；對外牆留窗洞）
-  seg(0,-123,0,175); seg(0,365,0,508);                 // 西外牆（客廳窗洞 175–365）
+  // 外牆（入口在正下方：南牆 120–210 留門洞；僅主臥北牆留窗洞）
+  seg(0,-123,0,508);                                   // 西外牆（客廳，除陽台外無窗）
   seg(0,508,120,508); seg(210,508,250,508);
   seg(260,437,260,508);                                // 長條下段東側外牆
-  seg(260,437,385,437); seg(450,437,480,437);          // 浴室南牆（窗洞 385–450）
-  seg(480,0,480,60); seg(480,205,480,437);             // 東外牆（主臥窗洞 60–205）
+  seg(260,437,480,437);                                // 浴室南牆（無窗）
+  seg(480,437,480,0);                                  // 東外牆（主臥右側，無窗）
   seg(250,0,315,0); seg(430,0,480,0);                  // 主臥北外牆（窗洞 315–430）
   seg(0,-123,232,-123); seg(232,-123,232,0,110);       // 露台矮牆
   seg(0,0,20,0); seg(140,0,250,0);                     // 露台落地窗兩側
-  // ── 對外窗（玻璃＋窗框）──
-  windowPane(0,175,0,365, 95,215);                     // 客廳西窗（大）
+  // ── 對外窗（僅主臥上方北窗）──
   windowPane(315,0,430,0, 95,215);                     // 主臥北窗
-  windowPane(480,60,480,205, 95,215);                  // 主臥東窗
-  windowPane(385,437,450,437, 130,205);                // 浴室高窗（小）
   // 玻璃
   const glass=new THREE.Mesh(new THREE.BoxGeometry(120,WALL_H-20,4),
     new THREE.MeshStandardMaterial({color:new THREE.Color(0xbfd4d8).convertSRGBToLinear(),
@@ -733,6 +734,33 @@ function build3d(f){
     door.rotation.x=Math.PI/2;add(door);                 // 圓形艙門
   }else if(f.t==="rug"){
     add(box(c.w,1,c.d,M(c.c,.95),0,.5,0));                // 地毯（平鋪）
+  }else if(f.t==="toilet"){
+    const m=M(0xfdfaf2,.3);
+    add(box(c.w,40,16,m,0,20,-c.d/2+8));                  // 水箱
+    add(box(c.w-8,14,c.d-22,m,0,18,4));                   // 底座
+    add(cyl(15,12,m,0,30,c.d/2-16,22));                   // 座圈
+  }else if(f.t==="basin"){
+    const m=M(MAT.walnutLt,.5),bm=M(0xfdfaf2,.25);
+    add(box(c.w,58,c.d,m,0,29,0));                        // 浴櫃
+    add(box(c.w-4,10,c.d-4,bm,0,62,0));                   // 檯面
+    add(cyl(c.w*.24,8,bm,0,66,4,22));                     // 面盆
+    add(cyl(1,16,Mm(MAT.brass),0,74,-c.d/2+12,10));       // 龍頭
+  }else if(f.t==="shower"){
+    const glassM=new THREE.MeshStandardMaterial({
+      color:new THREE.Color(0xbcd2d8).convertSRGBToLinear(),
+      transparent:true,opacity:.2,roughness:.05,metalness:.3,side:THREE.DoubleSide});
+    const fr=Mm(0xb9b2a2,.4),gh=200;
+    add(box(c.w,6,c.d,M(0xe7eaec,.4),0,3,0));             // 底盤（乾濕分離）
+    const gfr=box(c.w,gh,1.5,glassM,0,gh/2+6,c.d/2);gfr.castShadow=false;add(gfr); // 前玻璃門
+    const gsd=box(1.5,gh,c.d,glassM,c.w/2,gh/2+6,0);gsd.castShadow=false;add(gsd); // 側玻璃
+    add(box(c.w,3,3,fr,0,gh+6,c.d/2));                    // 上框
+    add(box(3,gh,3,fr,c.w/2,gh/2+6,c.d/2));               // 立框
+    add(box(12,4,12,fr,-c.w/2+16,gh-8,-c.d/2+16));        // 蓮蓬頭座
+  }else if(f.t==="tub"){
+    const m=M(0xfdfaf2,.3);
+    add(box(c.w,44,c.d,m,0,22,0));                        // 缸體
+    add(box(c.w-18,8,c.d-16,M(0xeef1f2,.2),0,42,0));      // 內凹
+    add(cyl(1.2,14,Mm(MAT.brass),c.w/2-16,50,0,10));      // 龍頭
   }else{ // 自訂傢俱：以概念箱體呈現
     const h=Math.min(90,Math.max(25,Math.round(Math.min(c.w,c.d)*.7)));
     add(box(c.w,h,c.d,M(c.c,.8),0,h/2,0));
