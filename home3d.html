@@ -582,6 +582,25 @@ function cyl(r,h,mat,x,y,z,seg=28){
   const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,seg),mat);
   m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;return m;}
 
+/* 對外窗：沿牆線 (x1,z1)-(x2,z2)，sill=窗台高、top=窗頂高 */
+function windowPane(x1,z1,x2,z2,sill,top){
+  const len=Math.hypot(x2-x1,z2-z1),h=top-sill,cy=(sill+top)/2;
+  const cx=(x1+x2)/2,cz=(z1+z2)/2,ang=-Math.atan2(z2-z1,x2-x1);
+  const glassM=new THREE.MeshStandardMaterial({
+    color:new THREE.Color(0xbcd2d8).convertSRGBToLinear(),
+    transparent:true,opacity:.16,roughness:.05,metalness:.35,side:THREE.DoubleSide});
+  const frameM=M(0xcfc7b6,.7);
+  const g=new THREE.Group();
+  const glass=box(len,h,1.5,glassM,0,cy,0);glass.castShadow=false;g.add(glass);
+  const ft=4;
+  g.add(box(len,ft,5,frameM,0,top,0));                 // 上框
+  g.add(box(len,ft,5,frameM,0,sill,0));                // 下框
+  g.add(box(ft,h,5,frameM,-len/2+ft/2,cy,0));          // 左框
+  g.add(box(ft,h,5,frameM,len/2-ft/2,cy,0));           // 右框
+  g.add(box(2,h,4,frameM,0,cy,0));                     // 中櫺
+  g.position.set(cx,0,cz);g.rotation.y=ang;
+  scene.add(g);
+}
 function buildRooms(){
   const floor=(r,mat)=>{
     const m=new THREE.Mesh(new THREE.PlaneGeometry(r.w,r.h),mat);
@@ -591,19 +610,28 @@ function buildRooms(){
   floor(ROOMS.strip,oakM);floor(ROOMS.mbr,oakM);
   floor(ROOMS.bath,tileM);floor(ROOMS.bal,balM);
 
-  const wallM=M(MAT.wall,.92);
+  const wallM=new THREE.MeshStandardMaterial({
+    color:new THREE.Color(MAT.wall).convertSRGBToLinear(),
+    roughness:.9,metalness:.02,transparent:true,opacity:.5,
+    side:THREE.DoubleSide,depthWrite:false});
   const seg=(x1,z1,x2,z2,h=WALL_H)=>{
     const len=Math.hypot(x2-x1,z2-z1);
     const m=box(len,h,WALL_T,wallM,(x1+x2)/2,h/2,(z1+z2)/2);
     m.rotation.y=-Math.atan2(z2-z1,x2-x1);scene.add(m);};
-  // 外牆（入口在正下方：南牆 120–210 留門洞）
-  seg(0,-123,0,508);
+  // 外牆（入口在正下方：南牆 120–210 留門洞；對外牆留窗洞）
+  seg(0,-123,0,175); seg(0,365,0,508);                 // 西外牆（客廳窗洞 175–365）
   seg(0,508,120,508); seg(210,508,250,508);
   seg(260,437,260,508);                                // 長條下段東側外牆
-  seg(260,437,480,437);                                // 浴室南牆＝外牆
-  seg(480,437,480,0); seg(250,0,480,0);
+  seg(260,437,385,437); seg(450,437,480,437);          // 浴室南牆（窗洞 385–450）
+  seg(480,0,480,60); seg(480,205,480,437);             // 東外牆（主臥窗洞 60–205）
+  seg(250,0,315,0); seg(430,0,480,0);                  // 主臥北外牆（窗洞 315–430）
   seg(0,-123,232,-123); seg(232,-123,232,0,110);       // 露台矮牆
   seg(0,0,20,0); seg(140,0,250,0);                     // 露台落地窗兩側
+  // ── 對外窗（玻璃＋窗框）──
+  windowPane(0,175,0,365, 95,215);                     // 客廳西窗（大）
+  windowPane(315,0,430,0, 95,215);                     // 主臥北窗
+  windowPane(480,60,480,205, 95,215);                  // 主臥東窗
+  windowPane(385,437,450,437, 130,205);                // 浴室高窗（小）
   // 玻璃
   const glass=new THREE.Mesh(new THREE.BoxGeometry(120,WALL_H-20,4),
     new THREE.MeshStandardMaterial({color:new THREE.Color(0xbfd4d8).convertSRGBToLinear(),
