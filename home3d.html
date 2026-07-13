@@ -531,7 +531,7 @@ function init3d(){
   warm.position.set(125,230,300);scene.add(warm);
   setTimeOfDay(tod);
 
-  buildRooms();
+  buildRooms();buildCity();
   furnGroup=new THREE.Group();scene.add(furnGroup);
   sync3d();
 
@@ -689,9 +689,101 @@ function setFp(on){
   fpMode=on;
   const b=document.getElementById("fpBtn");
   if(b){b.style.background=on?"#5a3729":"";b.style.color=on?"#fff":"";}
+  if(cityGroup)cityGroup.visible=on;   // 窗外夜景僅導覽模式顯示
+  sync3d();                            // 重建傢俱以套用電視／花灑特效
   if(on)startTour();
   else{keys.clear();touring=false;place();}
   fpHint();
+}
+
+/* ═══ 導覽模式限定特效：城市夜景／電視新聞／花灑灑水 ═══ */
+let cityGroup=null,sprays=[];
+function buildCity(){
+  const cv=document.createElement("canvas");cv.width=1024;cv.height=256;
+  const x=cv.getContext("2d");
+  const sky=x.createLinearGradient(0,0,0,256);
+  sky.addColorStop(0,"#0b1026");sky.addColorStop(.7,"#1a2340");sky.addColorStop(1,"#2a3554");
+  x.fillStyle=sky;x.fillRect(0,0,1024,256);
+  for(let i=0;i<150;i++){                                // 星星
+    x.fillStyle="rgba(255,255,255,"+(Math.random()*.7+.2).toFixed(2)+")";
+    x.fillRect(Math.random()*1024,Math.random()*130,
+      Math.random()<.15?2:1,Math.random()<.15?2:1);
+  }
+  x.beginPath();x.arc(830,54,22,0,7);x.fillStyle="#f4ecd6";x.fill(); // 月亮
+  const glow=x.createRadialGradient(830,54,22,830,54,62);
+  glow.addColorStop(0,"rgba(244,236,214,.35)");glow.addColorStop(1,"rgba(244,236,214,0)");
+  x.fillStyle=glow;x.beginPath();x.arc(830,54,62,0,7);x.fill();
+  x.fillStyle="#131a30";x.beginPath();x.moveTo(0,190);   // 遠山剪影
+  for(let i=0;i<=16;i++)x.lineTo(i*64,175+Math.sin(i*1.7)*14);
+  x.lineTo(1024,256);x.lineTo(0,256);x.fill();
+  let bx=0;                                              // 大樓＋亮窗
+  while(bx<1024){
+    const bw=26+Math.random()*46,bh=60+Math.random()*120,by=256-bh;
+    x.fillStyle=["#0e1424","#111a2e","#0c1220"][Math.floor(Math.random()*3)];
+    x.fillRect(bx,by,bw,bh);
+    for(let wy=by+8;wy<246;wy+=11)for(let wx=bx+4;wx<bx+bw-5;wx+=9)
+      if(Math.random()<.4){
+        x.fillStyle=Math.random()<.8?"rgba(255,214,140,.9)":"rgba(160,200,255,.8)";
+        x.fillRect(wx,wy,4,5);}
+    if(Math.random()<.25){x.fillStyle="#e74c3c";x.fillRect(bx+bw/2,by-4,2,4);} // 塔頂紅燈
+    bx+=bw+Math.random()*8;
+  }
+  const tex=new THREE.CanvasTexture(cv);tex.encoding=THREE.sRGBEncoding;
+  cityGroup=new THREE.Group();
+  const plane=new THREE.Mesh(new THREE.PlaneGeometry(2600,650),
+    new THREE.MeshBasicMaterial({map:tex,fog:false}));
+  plane.position.set(230,240,-620);cityGroup.add(plane); // 北面（露台／主臥窗外）
+  cityGroup.visible=false;scene.add(cityGroup);
+}
+/* 電視新聞（CanvasTexture 動畫） */
+const NEWS=["「新家設計室」上線 用戶好評不斷","今晚全台晴朗 高樓夜景清晰可見",
+  "貓咪霸佔新沙發 屋主束手無策","專家提醒：沙發到電視建議留 160cm",
+  "本週傢俱特賣 胡桃木色最搶手","房市趨穩 首購族信心回升",
+  "夜間路跑正夯 河濱公園湧人潮"];
+const tvCv=document.createElement("canvas");tvCv.width=256;tvCv.height=144;
+const tvCtx=tvCv.getContext("2d");
+const tvTex=new THREE.CanvasTexture(tvCv);
+const tvOnMat=new THREE.MeshBasicMaterial({map:tvTex});
+const TVSCENES=[["#26364f","#0f1826"],["#4f2636","#260f18"],
+  ["#2b4a33","#0e2015"],["#453a20","#1d1708"]];
+let tvT=0,tickerX=256,tickerIdx=0;
+function updateTv(dt){
+  tvT+=dt;
+  const[c1,c2]=TVSCENES[Math.floor(tvT/5)%TVSCENES.length];
+  const g=tvCtx.createLinearGradient(0,0,0,110);
+  g.addColorStop(0,c1);g.addColorStop(1,c2);
+  tvCtx.fillStyle=g;tvCtx.fillRect(0,0,256,110);
+  for(let i=0;i<3;i++){                                  // 模擬畫面色塊
+    const px=(Math.sin(tvT*.7+i*2.1)*.5+.5)*200;
+    tvCtx.fillStyle="rgba(255,255,255,"+(.05+i*.03).toFixed(2)+")";
+    tvCtx.fillRect(px,22+i*26,46,18);
+  }
+  tvCtx.fillStyle="#fff";tvCtx.font="bold 15px 'Noto Sans TC',sans-serif";
+  tvCtx.fillText("晚間新聞",14,34);
+  tvCtx.fillStyle="#c0392b";tvCtx.fillRect(198,12,46,17); // LIVE 標章
+  tvCtx.fillStyle="#fff";tvCtx.font="bold 11px sans-serif";tvCtx.fillText("LIVE",208,25);
+  tvCtx.fillStyle="#101d33";tvCtx.fillRect(0,110,256,34); // 跑馬燈
+  tvCtx.fillStyle="#b3873f";tvCtx.fillRect(0,110,256,3);
+  const msg=NEWS[tickerIdx];
+  tvCtx.fillStyle="#fff";tvCtx.font="13px 'Noto Sans TC',sans-serif";
+  tickerX-=dt*55;
+  if(tickerX<-tvCtx.measureText(msg).width){tickerX=256;tickerIdx=(tickerIdx+1)%NEWS.length;}
+  tvCtx.fillText(msg,tickerX,132);
+  tvTex.needsUpdate=true;
+}
+/* 花灑水粒子 */
+function updateSprays(dt){
+  sprays.forEach(p=>{
+    const{seed,hx,hy,hz}=p.userData,arr=p.geometry.attributes.position.array;
+    for(let i=0;i<seed.length;i++){
+      const s=seed[i];s.y-=dt*220;if(s.y<6)s.y+=hy-10;
+      const t=1-s.y/hy,r=2+t*14;
+      arr[i*3]=hx+Math.cos(s.a)*r*s.rr;
+      arr[i*3+1]=s.y;
+      arr[i*3+2]=hz+Math.sin(s.a)*r*s.rr;
+    }
+    p.geometry.attributes.position.needsUpdate=true;
+  });
 }
 
 function animate(){
@@ -700,6 +792,7 @@ function animate(){
   if(fpMode){
     if(touring)tourStep(dt);else fpWalk(dt);
     camera.position.copy(fpPos);camera.lookAt(fpLook);
+    updateTv(dt);updateSprays(dt);
   }
   renderer.render(scene,camera);
 }
@@ -826,6 +919,7 @@ function build3d(f){
     k2.rotation.x=Math.PI/2;add(k2);
     add(rbox(128,76,5,2,M(0x0e0e12,.35),0,152,0));               // 電視外框
     const scr=new THREE.Mesh(new THREE.BoxGeometry(118,66,1.5),
+      fpMode?tvOnMat:                                            // 導覽模式播新聞
       new THREE.MeshStandardMaterial({color:new THREE.Color(0x0b0e14).convertSRGBToLinear(),
         roughness:.12,metalness:.4,
         emissive:new THREE.Color(0x18243c).convertSRGBToLinear(),emissiveIntensity:.3}));
@@ -1008,6 +1102,20 @@ function build3d(f){
     const armS=cyl(1,16,Mm(0xd8d8dc,.2),-c.w/2+17,gh-30,-c.d/2+8,8);
     armS.rotation.z=Math.PI/2;add(armS);                         // 橫臂
     add(cyl(7.5,1.6,Mm(0xd8d8dc,.2),-c.w/2+24,gh-32,-c.d/2+8,18)); // 頂噴花灑
+    if(fpMode){                                                  // 導覽模式：灑水粒子
+      const N=110,pos=new Float32Array(N*3),seed=[];
+      const hx=-c.w/2+24,hy=gh-34,hz=-c.d/2+8;
+      for(let i=0;i<N;i++){
+        seed.push({a:Math.random()*Math.PI*2,rr:Math.random(),y:Math.random()*(hy-8)+6});
+        pos[i*3]=hx;pos[i*3+1]=hy;pos[i*3+2]=hz;
+      }
+      const geo=new THREE.BufferGeometry();
+      geo.setAttribute("position",new THREE.BufferAttribute(pos,3));
+      const pts=new THREE.Points(geo,new THREE.PointsMaterial({
+        color:new THREE.Color(0xcfe6f2).convertSRGBToLinear(),size:2.2,
+        transparent:true,opacity:.65,sizeAttenuation:true}));
+      pts.userData={seed,hx,hy,hz};sprays.push(pts);add(pts);
+    }
   }else if(f.t==="tub"){
     const pm=M(0xfdfaf2,.22);
     add(rbox(c.w,46,c.d,10,pm,0,25,0));                          // 圓弧缸體
@@ -1023,6 +1131,7 @@ function build3d(f){
 }
 function sync3d(){
   if(!furnGroup)return;
+  sprays=[];
   while(furnGroup.children.length)furnGroup.remove(furnGroup.children[0]);
   F.forEach(f=>{
     const c=cat(f),g=build3d(f),b=bb(f);
