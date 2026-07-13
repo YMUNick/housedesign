@@ -117,6 +117,7 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);color:v
 <div class="stage view3d" id="stage3d">
   <canvas id="c3d"></canvas>
   <div class="hud">
+    <button id="fpBtn" title="第一人稱導覽">🚶</button>
     <button id="todBtn" title="早晨／夜晚">🌙</button>
     <button id="zin" title="拉近">＋</button>
     <button id="zout" title="拉遠">－</button>
@@ -540,22 +541,39 @@ function init3d(){
   window.addEventListener("pointerup",()=>pd=false);
   window.addEventListener("pointermove",e=>{
     if(!pd)return;
+    if(fpMode){
+      fpTakeover();
+      fpYaw-=(e.clientX-px)*.0045;
+      fpPitch=Math.max(-.7,Math.min(.7,fpPitch-(e.clientY-py)*.003));
+      px=e.clientX;py=e.clientY;fpUpdateLook();return;
+    }
     az-=(e.clientX-px)*.008;pol=Math.max(.25,Math.min(1.45,pol-(e.clientY-py)*.006));
     px=e.clientX;py=e.clientY;place();
   });
   cv.addEventListener("wheel",e=>{e.preventDefault();
+    if(fpMode){fpMove(-e.deltaY*.3);return;}
     dist=Math.max(180,Math.min(1400,dist+e.deltaY*.7));place();},{passive:false});
   cv.addEventListener("touchmove",e=>{
     if(e.touches.length===2){e.preventDefault();
       const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,
         e.touches[0].clientY-e.touches[1].clientY);
-      if(pinch)dist=Math.max(180,Math.min(1400,dist*(pinch/d)));
-      pinch=d;place();}
+      if(pinch){
+        if(fpMode)fpMove((d-pinch)*.9);
+        else dist=Math.max(180,Math.min(1400,dist*(pinch/d)));
+      }
+      pinch=d;if(!fpMode)place();}
   },{passive:false});
   cv.addEventListener("touchend",()=>pinch=0);
-  document.getElementById("zin").onclick=()=>{dist=Math.max(180,dist-90);place();};
-  document.getElementById("zout").onclick=()=>{dist=Math.min(1400,dist+90);place();};
-  document.getElementById("zreset").onclick=()=>{az=-.7;pol=1.05;dist=620;place();};
+  document.getElementById("zin").onclick=()=>{
+    if(fpMode){fpMove(45);return;}
+    dist=Math.max(180,dist-90);place();};
+  document.getElementById("zout").onclick=()=>{
+    if(fpMode){fpMove(-45);return;}
+    dist=Math.min(1400,dist+90);place();};
+  document.getElementById("zreset").onclick=()=>{
+    if(fpMode){startTour();return;}
+    az=-.7;pol=1.05;dist=620;place();};
+  document.getElementById("fpBtn").onclick=()=>setFp(!fpMode);
   document.getElementById("todBtn").onclick=()=>{
     setTimeOfDay(tod==="night"?"morning":"night");saveState();};
 
@@ -563,6 +581,7 @@ function init3d(){
   window.addEventListener("resize",resize);
 }
 function place(){
+  if(fpMode)return;
   camera.position.set(
     TGT.x+dist*Math.sin(pol)*Math.sin(az),
     TGT.y+dist*Math.cos(pol),
@@ -575,7 +594,115 @@ function resize(){
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));
   camera.aspect=r.width/520;camera.updateProjectionMatrix();
 }
-function animate(){requestAnimationFrame(animate);renderer.render(scene,camera);}
+
+/* ═══ 第一人稱導覽 ═══ */
+const EYE=145;
+let fpMode=false,touring=false,tourIdx=0,tourU=0,fpYaw=Math.PI,fpPitch=0;
+const fpPos=new THREE.Vector3(),fpLook=new THREE.Vector3();
+const keys=new Set(),fpClock=new THREE.Clock();
+const TOUR=[
+  {p:[165,EYE,585],l:[165,125,400],d:0},   // 大門外
+  {p:[165,EYE,460],l:[130,115,350],d:3},   // 走進玄關
+  {p:[150,EYE,400],l:[130,100,330],d:2},   // 餐桌
+  {p:[135,EYE,360],l:[30,95,420],d:2.4},   // 開放廚房
+  {p:[125,EYE,240],l:[235,115,100],d:3},   // 客廳看電視牆
+  {p:[120,EYE,200],l:[40,90,130],d:2.2},   // 看沙發
+  {p:[110,EYE,30],l:[110,115,-90],d:2.8},  // 走向露台
+  {p:[110,EYE,-70],l:[130,120,260],d:2.4}, // 露台回望客廳
+  {p:[180,EYE,190],l:[320,115,190],d:3.2}, // 走向主臥門
+  {p:[310,EYE,190],l:[390,85,140],d:2.4},  // 進主臥看床
+  {p:[360,EYE,205],l:[372,125,10],d:2.4},  // 主臥看窗
+  {p:[300,EYE,192],l:[230,115,300],d:2},   // 折返主臥門
+  {p:[230,EYE,240],l:[240,110,400],d:2},   // 沿走道
+  {p:[235,EYE,400],l:[340,110,395],d:2.4}, // 面向浴室門
+  {p:[330,EYE,395],l:[430,95,390],d:2.4},  // 進浴室
+  {p:[240,EYE,405],l:[165,115,330],d:2.2}, // 出浴室
+  {p:[165,EYE,330],l:[125,110,120],d:2.6}, // 回客廳結束
+];
+const hintEl=document.querySelector(".hint3d");
+const ORBIT_HINT="單指拖曳旋轉 · 雙指縮放（滑鼠：拖曳＋滾輪）";
+function fpHint(){
+  hintEl.textContent=!fpMode?ORBIT_HINT:
+    touring?"導覽中…拖曳可隨時接手環顧 · 🚶 離開第一人稱"
+    :"拖曳環顧 · WASD／方向鍵走動（手機：＋／－ 前進後退）· ⌂ 重新導覽";
+}
+function fpDir(ground){
+  const cp=Math.cos(fpPitch);
+  return new THREE.Vector3(Math.sin(fpYaw)*(ground?1:cp),
+    ground?0:Math.sin(fpPitch),Math.cos(fpYaw)*(ground?1:cp)).normalize();
+}
+function fpUpdateLook(){fpLook.copy(fpPos).add(fpDir(false).multiplyScalar(120));}
+function fpClampPos(){
+  fpPos.x=Math.max(10,Math.min(470,fpPos.x));
+  fpPos.z=Math.max(-113,Math.min(575,fpPos.z));
+  fpPos.y=EYE;
+}
+function fpSyncAngles(){
+  const d=fpLook.clone().sub(fpPos).normalize();
+  fpPitch=Math.asin(Math.max(-1,Math.min(1,d.y)));
+  fpYaw=Math.atan2(d.x,d.z);
+}
+function fpTakeover(){if(touring){touring=false;fpSyncAngles();fpHint();}}
+function fpMove(step){
+  fpTakeover();
+  fpPos.add(fpDir(true).multiplyScalar(step));
+  fpClampPos();fpUpdateLook();
+}
+function startTour(){
+  tourIdx=0;tourU=0;touring=true;
+  fpPos.set(...TOUR[0].p);fpLook.set(...TOUR[0].l);
+  fpSyncAngles();fpHint();
+}
+function tourStep(dt){
+  const b=TOUR[tourIdx+1];
+  if(!b){touring=false;fpSyncAngles();fpHint();return;}
+  tourU+=dt/b.d;
+  if(tourU>=1){
+    fpPos.set(...b.p);fpLook.set(...b.l);tourU=0;tourIdx++;
+    if(tourIdx>=TOUR.length-1){touring=false;fpSyncAngles();fpHint();}
+    return;
+  }
+  const a=TOUR[tourIdx],e=tourU*tourU*(3-2*tourU);
+  fpPos.set(a.p[0]+(b.p[0]-a.p[0])*e,a.p[1]+(b.p[1]-a.p[1])*e,a.p[2]+(b.p[2]-a.p[2])*e);
+  fpLook.set(a.l[0]+(b.l[0]-a.l[0])*e,a.l[1]+(b.l[1]-a.l[1])*e,a.l[2]+(b.l[2]-a.l[2])*e);
+}
+function fpWalk(dt){
+  if(!keys.size)return;
+  const sp=175*dt,f=fpDir(true);
+  const r=new THREE.Vector3(-Math.cos(fpYaw),0,Math.sin(fpYaw));
+  const mv=new THREE.Vector3();
+  if(keys.has("w"))mv.add(f); if(keys.has("s"))mv.sub(f);
+  if(keys.has("a"))mv.sub(r); if(keys.has("d"))mv.add(r);
+  if(mv.lengthSq()){mv.normalize().multiplyScalar(sp);
+    fpPos.add(mv);fpClampPos();fpUpdateLook();}
+}
+const KEYMAP={arrowup:"w",arrowdown:"s",arrowleft:"a",arrowright:"d"};
+window.addEventListener("keydown",e=>{
+  if(!fpMode||/INPUT|TEXTAREA/.test(e.target.tagName))return;
+  const k=e.key.toLowerCase(),m=KEYMAP[k]||k;
+  if(m.length===1&&"wasd".includes(m)){keys.add(m);fpTakeover();e.preventDefault();}
+});
+window.addEventListener("keyup",e=>{
+  const k=e.key.toLowerCase();keys.delete(KEYMAP[k]||k);
+});
+function setFp(on){
+  fpMode=on;
+  const b=document.getElementById("fpBtn");
+  if(b){b.style.background=on?"#5a3729":"";b.style.color=on?"#fff":"";}
+  if(on)startTour();
+  else{keys.clear();touring=false;place();}
+  fpHint();
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=Math.min(fpClock.getDelta(),.1);
+  if(fpMode){
+    if(touring)tourStep(dt);else fpWalk(dt);
+    camera.position.copy(fpPos);camera.lookAt(fpLook);
+  }
+  renderer.render(scene,camera);
+}
 
 const M=(c,r=.85)=>new THREE.MeshStandardMaterial(
   {color:new THREE.Color(c).convertSRGBToLinear(),roughness:r,metalness:.04});
