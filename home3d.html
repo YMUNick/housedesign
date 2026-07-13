@@ -92,6 +92,18 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);color:v
   padding:2px;cursor:pointer}
 .custom input:focus{outline:none;border-color:var(--walnut)}
 .custom .unit{font-size:.7rem;color:var(--muted)}
+
+/* edit size modal */
+.modal{position:fixed;inset:0;background:rgba(43,38,34,.45);display:none;
+  align-items:center;justify-content:center;z-index:60}
+.modal.on{display:flex}
+.mbox{background:#fff;border:1px solid var(--line);padding:22px 26px;min-width:270px}
+.mbox h3{font-size:.88rem;font-weight:500;margin-bottom:14px}
+.mrow{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:.76rem;
+  color:var(--muted)}
+.mrow input{font-family:inherit;font-size:.8rem;padding:8px 10px;border:1px solid var(--line);
+  width:110px;color:var(--ink)}
+.mrow input:focus{outline:none;border-color:var(--walnut)}
 </style>
 
 <div class="wrap">
@@ -150,6 +162,20 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);color:v
   <span id="saveHint" style="font-size:.7rem;color:var(--muted);align-self:center"></span>
 </div>
 
+<div class="modal" id="editModal">
+  <div class="mbox">
+    <h3>編輯尺寸 — <span id="emName"></span></h3>
+    <div class="mrow">寬（W）<input id="emW" type="number" min="10" max="480" step="5"> cm</div>
+    <div class="mrow">深（D）<input id="emD" type="number" min="10" max="480" step="5"> cm</div>
+    <div class="mrow">高（H）<input id="emH" type="number" min="2" max="260" step="1"> cm</div>
+    <div class="mrow" style="justify-content:flex-end;gap:8px;margin-top:14px">
+      <button id="emCancel" class="fb">取消</button>
+      <button id="emSave" class="fb"
+        style="background:var(--walnut);color:#fff;border-color:var(--walnut)">確定</button>
+    </div>
+  </div>
+</div>
+
 <div class="read">
   <div><div class="k">沙發↔電視 走道</div><div class="v" id="walk">—</div>
     <div class="note">最少 60cm</div></div>
@@ -182,29 +208,35 @@ const MAT={walnut:0x5a3729,walnutLt:0x7d5340,oak:0xdcc19b,oakDk:0xc9a97f,
   screen:0x16161a,white:0xfdfaf2,counter:0xd8d3c8};
 
 const CATALOG={
-  sofa:  {n:"布沙發",   w:180,d:75, c:"#c9bda8"},
-  sofaL: {n:"黑皮沙發", w:190,d:85, c:"#232326"},
-  tv:    {n:"薄電視櫃", w:140,d:30, c:"#5a3729"},
-  tea:   {n:"圓茶几",   w:65, d:65, c:"#6b4433"},
-  teaO:  {n:"橢圓茶几", w:110,d:60, c:"#6b4433"},
-  din:   {n:"圓餐桌",   w:80, d:80, c:"#7d5340"},
-  bed:   {n:"雙人床",   w:150,d:190,c:"#c9bda8"},
-  ward:  {n:"衣櫃",     w:120,d:60, c:"#5a3729"},
-  plant: {n:"綠植",     w:45, d:45, c:"#6e8b5e"},
-  lamp:  {n:"立燈",     w:35, d:35, c:"#b3873f"},
-  desk:  {n:"書桌",     w:140,d:60, c:"#7d5340"},
-  chair: {n:"餐椅",     w:45, d:48, c:"#5a3729"},
-  arm:   {n:"扶手椅",   w:75, d:80, c:"#c9bda8"},
-  shelf: {n:"書櫃",     w:90, d:30, c:"#5a3729"},
-  dress: {n:"斗櫃",     w:100,d:45, c:"#5a3729"},
-  night: {n:"床頭櫃",   w:45, d:40, c:"#7d5340"},
-  fridge:{n:"冰箱",     w:65, d:65, c:"#e9e4d8"},
-  washer:{n:"洗衣機",   w:60, d:60, c:"#f0ede6"},
-  rug:   {n:"地毯",     w:200,d:140,c:"#c9a97f"},
-  toilet:{n:"馬桶",     w:40, d:65, c:"#fdfaf2"},
-  basin: {n:"洗手台",   w:60, d:45, c:"#fdfaf2"},
-  shower:{n:"乾濕分離淋浴間", w:90,d:90, c:"#bcd2d8"},
-  tub:   {n:"浴缸",     w:160,d:75, c:"#fdfaf2"},
+  sofa:  {n:"布沙發",   w:180,d:75, h:72, c:"#c9bda8"},
+  sofaL: {n:"黑皮沙發", w:190,d:85, h:72, c:"#232326"},
+  tv:    {n:"薄電視櫃", w:140,d:30, h:185,c:"#5a3729"},
+  tea:   {n:"圓茶几",   w:65, d:65, h:38, c:"#6b4433"},
+  teaO:  {n:"橢圓茶几", w:110,d:60, h:38, c:"#6b4433"},
+  din:   {n:"圓餐桌",   w:80, d:80, h:75, c:"#7d5340"},
+  bed:   {n:"雙人床",   w:150,d:190,h:79, c:"#c9bda8"},
+  bedS:  {n:"單人床",   w:95, d:190,h:79, c:"#c9bda8"},
+  ward:  {n:"衣櫃",     w:120,d:60, h:203,c:"#5a3729"},
+  plant: {n:"綠植",     w:45, d:45, h:86, c:"#6e8b5e"},
+  lamp:  {n:"立燈",     w:35, d:35, h:154,c:"#b3873f"},
+  desk:  {n:"書桌",     w:140,d:60, h:76, c:"#7d5340"},
+  chair: {n:"餐椅",     w:45, d:48, h:80, c:"#5a3729"},
+  arm:   {n:"扶手椅",   w:75, d:80, h:74, c:"#c9bda8"},
+  bench: {n:"長凳",     w:100,d:35, h:45, c:"#7d5340"},
+  shelf: {n:"書櫃",     w:90, d:30, h:183,c:"#5a3729"},
+  shoe:  {n:"鞋櫃",     w:80, d:35, h:110,c:"#5a3729"},
+  side:  {n:"邊几",     w:45, d:45, h:55, c:"#7d5340"},
+  dress: {n:"斗櫃",     w:100,d:45, h:86, c:"#5a3729"},
+  night: {n:"床頭櫃",   w:45, d:40, h:46, c:"#7d5340"},
+  mirror:{n:"全身鏡",   w:45, d:20, h:165,c:"#b3873f"},
+  coat:  {n:"衣帽架",   w:40, d:40, h:170,c:"#7d5340"},
+  fridge:{n:"冰箱",     w:65, d:65, h:175,c:"#e9e4d8"},
+  washer:{n:"洗衣機",   w:60, d:60, h:85, c:"#f0ede6"},
+  rug:   {n:"地毯",     w:200,d:140,h:2,  c:"#c9a97f"},
+  toilet:{n:"馬桶",     w:40, d:65, h:52, c:"#fdfaf2"},
+  basin: {n:"洗手台",   w:60, d:45, h:105,c:"#fdfaf2"},
+  shower:{n:"乾濕分離淋浴間", w:90,d:90,h:200,c:"#bcd2d8"},
+  tub:   {n:"浴缸",     w:160,d:75, h:48, c:"#fdfaf2"},
 };
 const DEFAULT_F=[
   {id:1,t:"sofa", x:0,  y:45, rot:90},
@@ -223,6 +255,8 @@ function applyState(st){
     F=st.F.map(f=>{
       const o={id:+f.id,t:f.t,x:+f.x,y:+f.y,rot:((+f.rot||0)%360+360)%360};
       if(f.t==="custom"){o.n=f.n||"自訂";o.w=+f.w;o.d=+f.d;o.c=f.c||"#8e8377";}
+      else{if(+f.w>0)o.w=+f.w;if(+f.d>0)o.d=+f.d;}   // 尺寸覆寫
+      if(+f.h>0)o.h=+f.h;
       return o;
     }).filter(f=>f.t==="custom"?(f.w>0&&f.d>0):CATALOG[f.t]);
     if(!F.length)F=DEFAULT_F.map(f=>({...f}));
@@ -248,7 +282,11 @@ function flashHint(msg,bad){
   e.textContent=msg;e.style.color=bad?"var(--bad)":"var(--good)";
   clearTimeout(hintT);hintT=setTimeout(()=>{e.textContent="";},2200);
 }
-const cat=f=>f.t==="custom"?{n:f.n,w:+f.w,d:+f.d,c:f.c}:CATALOG[f.t];
+const cat=f=>{
+  if(f.t==="custom")return{n:f.n,w:+f.w,d:+f.d,h:+f.h||0,c:f.c};
+  const c=CATALOG[f.t];if(!c)return c;
+  return(f.w||f.d||f.h)?{n:c.n,w:+f.w||c.w,d:+f.d||c.d,h:+f.h||c.h,c:c.c}:c;
+};
 const bb=f=>{const c=cat(f);return f.rot%180?{w:c.d,d:c.w}:{w:c.w,d:c.d};};
 const isDark=hex=>{if(typeof hex!=="string"||hex[0]!=="#")return false;
   const n=parseInt(hex.slice(1),16),r=(n>>16)&255,g=(n>>8)&255,b=n&255;
@@ -353,7 +391,7 @@ function drawF(f,X,Y){
   const c=cat(f),b=bb(f),px=X(f.x),py=Y(f.y),pw=b.w*S,ph=b.d*S,on=sel===f.id;
   const g=el("g",{class:"f","data-id":f.id,style:"cursor:grab"});
   const st=on?"#b3873f":"#3d2419",sw=on?3.5:1.5;
-  const oval=["tea","teaO","din","plant"].includes(f.t);
+  const oval=["tea","teaO","din","plant","side","coat"].includes(f.t);
   if(oval)g.appendChild(el("rect",{x:px,y:py,width:pw,height:ph,rx:Math.min(pw,ph)/2,
     fill:c.c,stroke:st,"stroke-width":sw}));
   else{
@@ -372,11 +410,21 @@ function drawF(f,X,Y){
       "text-anchor":"middle","font-family":"Noto Sans TC","pointer-events":"none","font-weight":500});
     t.textContent=c.n;g.appendChild(t);
   }
+  // 右上角編輯圓鈕
+  const eb=el("g",{class:"editbtn","data-id":f.id,style:"cursor:pointer"});
+  eb.appendChild(el("circle",{cx:px+pw-1,cy:py+1,r:8.5,fill:"#fff",
+    stroke:on?"#b3873f":"#8e8377","stroke-width":1.3}));
+  const et=el("text",{x:px+pw-1,y:py+4.4,fill:"#5a3729","font-size":9.5,
+    "text-anchor":"middle","pointer-events":"none","font-family":"Noto Sans TC"});
+  et.textContent="✎";eb.appendChild(et);
+  g.appendChild(eb);
   svg.appendChild(g);
 }
 
 let drag=null;
 svg.addEventListener("pointerdown",e=>{
+  const ebtn=e.target.closest(".editbtn");
+  if(ebtn){openEdit(+ebtn.dataset.id);return;}
   const g=e.target.closest("g.f");
   if(!g){sel=null;draw2d();btns();return;}
   const f=F.find(x=>x.id==+g.dataset.id);sel=f.id;
@@ -416,6 +464,40 @@ document.getElementById("cAdd").onclick=()=>{
   document.getElementById("cName").value="";
   document.getElementById("cW").value="";document.getElementById("cD").value="";
   flashHint("已加入「"+n+"」"+w+"×"+d);
+};
+
+/* 編輯傢俱尺寸（2D 右上角 ✎ 圓鈕） */
+const editModal=document.getElementById("editModal");
+let editId=null;
+function openEdit(id){
+  const f=F.find(x=>x.id===id);if(!f)return;
+  editId=id;const c=cat(f);
+  document.getElementById("emName").textContent=c.n;
+  document.getElementById("emW").value=c.w;
+  document.getElementById("emD").value=c.d;
+  document.getElementById("emH").value=c.h||"";
+  editModal.classList.add("on");
+}
+document.getElementById("emCancel").onclick=()=>editModal.classList.remove("on");
+editModal.addEventListener("pointerdown",e=>{
+  if(e.target===editModal)editModal.classList.remove("on");});
+document.getElementById("emSave").onclick=()=>{
+  const f=F.find(x=>x.id===editId);
+  if(!f){editModal.classList.remove("on");return;}
+  const r5=v=>Math.round(v/5)*5;
+  const w=r5(+document.getElementById("emW").value);
+  const d=r5(+document.getElementById("emD").value);
+  const hv=document.getElementById("emH").value,h=Math.round(+hv);
+  if(!(w>=10&&w<=480&&d>=10&&d<=480)){flashHint("寬深請輸入 10–480 cm",true);return;}
+  if(hv!==""&&!(h>=2&&h<=260)){flashHint("高度請輸入 2–260 cm",true);return;}
+  f.w=w;f.d=d;
+  if(hv!=="")f.h=h;else delete f.h;
+  const b=bb(f);
+  f.x=Math.max(BOUND.x1,Math.min(BOUND.x2-b.w,f.x));
+  f.y=Math.max(BOUND.y1,Math.min(BOUND.y2-b.d,f.y));
+  editModal.classList.remove("on");
+  sel=f.id;draw2d();btns();sync3d();saveState();
+  flashHint("已更新尺寸 "+w+"×"+d+(hv!==""?"×"+h:""));
 };
 const fbx=document.getElementById("fbtns");
 function btns(){
@@ -938,16 +1020,21 @@ function build3d(f){
   }else if(f.t==="teaO"){
     const top=cyl(c.w/2,4.5,woodLt,0,36,0,36);top.scale.z=c.d/c.w;add(top);
     add(leg(2.6,4,32,wood,-c.w/4,0));add(leg(2.6,4,32,wood,c.w/4,0));
-  }else if(f.t==="bed"){
+  }else if(f.t==="bed"||f.t==="bedS"){
     add(rbox(c.w+8,16,c.d+6,4,wood,0,14,2));                     // 床架
     [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>
       add(leg(2.6,1.8,8,wood,sx*(c.w/2-6),sz*(c.d/2-6))));
     add(rbox(c.w,20,c.d-4,8,M(0xf1ece1,.95),0,32,0));            // 床墊
     add(rbox(c.w+2,9,c.d*.52,6,M(0x77906a,.95),0,39,c.d*.2));    // 蓋毯
-    const p1=rbox(46,11,30,9,M(0xe6ddcb,.95),-c.w/4,45,-c.d/2+24);
-    p1.rotation.z=.05;add(p1);                                   // 枕頭
-    const p2=rbox(46,11,30,9,M(0xe6ddcb,.95),c.w/4,45,-c.d/2+24);
-    p2.rotation.z=-.05;add(p2);
+    if(f.t==="bed"){
+      const p1=rbox(46,11,30,9,M(0xe6ddcb,.95),-c.w/4,45,-c.d/2+24);
+      p1.rotation.z=.05;add(p1);                                 // 雙枕
+      const p2=rbox(46,11,30,9,M(0xe6ddcb,.95),c.w/4,45,-c.d/2+24);
+      p2.rotation.z=-.05;add(p2);
+    }else{
+      const p1=rbox(46,11,30,9,M(0xe6ddcb,.95),0,45,-c.d/2+24);
+      p1.rotation.z=.04;add(p1);                                 // 單枕
+    }
     add(rbox(c.w+8,58,7,4,woodLt,0,50,-c.d/2-1));                // 床頭板
   }else if(f.t==="ward"){
     add(rbox(c.w,196,c.d,3,wood,0,102,0));                       // 櫃體
@@ -1002,6 +1089,47 @@ function build3d(f){
     bc.rotation.x=-.16;add(bc);                                  // 背墊
     add(rbox(13,34,c.d-4,6,fab,-c.w/2+7,42,0));                  // 扶手
     add(rbox(13,34,c.d-4,6,fab,c.w/2-7,42,0));
+  }else if(f.t==="bench"){
+    add(rbox(c.w,6,c.d,2.5,woodLt,0,42,0));                      // 凳面
+    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>
+      add(leg(1.8,1.2,39,wood,sx*(c.w/2-6),sz*(c.d/2-5))));
+  }else if(f.t==="shoe"){
+    add(rbox(c.w,100,c.d,3,wood,0,54,0));                        // 櫃體
+    add(rbox(c.w+3,4,c.d+2,2,woodLt,0,106,0));                   // 檯面
+    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([sx,sz])=>
+      add(leg(1.6,1.2,6,wood,sx*(c.w/2-6),sz*(c.d/2-5))));
+    add(rbox(c.w-10,42,2,2,woodLt,0,80,c.d/2));                  // 上翻板門
+    add(rbox(c.w-10,42,2,2,woodLt,0,32,c.d/2));                  // 下翻板門
+    const s1=cyl(1,12,Mm(MAT.brass),0,80,c.d/2+1.4,8);
+    s1.rotation.z=Math.PI/2;add(s1);                             // 橫桿把手
+    const s2=cyl(1,12,Mm(MAT.brass),0,32,c.d/2+1.4,8);
+    s2.rotation.z=Math.PI/2;add(s2);
+  }else if(f.t==="side"){
+    add(cyl(c.w/2,4,woodLt,0,53,0,30));                          // 小圓桌面
+    add(leg(2.6,4,51,wood,0,0));                                 // 中柱
+    add(cyl(c.w*.4,1.8,wood,0,1,0,24));                          // 底座
+  }else if(f.t==="mirror"){
+    const fr=rbox(c.w,160,4,2,woodLt,0,82,2);
+    fr.rotation.x=-.06;add(fr);                                  // 微傾鏡框
+    const mg=new THREE.Mesh(new THREE.BoxGeometry(c.w-8,148,1),
+      new THREE.MeshStandardMaterial({
+        color:new THREE.Color(0xd9e2e4).convertSRGBToLinear(),
+        roughness:.04,metalness:.7}));
+    mg.position.set(0,82,4.6);mg.rotation.x=-.06;
+    mg.castShadow=true;add(mg);                                  // 鏡面
+    add(box(3,6,c.d-2,wood,-c.w/2+4,3,-2));                      // 支撐腳
+    add(box(3,6,c.d-2,wood,c.w/2-4,3,-2));
+  }else if(f.t==="coat"){
+    add(cyl(12,2.5,wood,0,1.2,0,20));                            // 圓底座
+    add(cyl(1.8,164,wood,0,84,0,12));                            // 主桿
+    for(let i=0;i<4;i++){                                        // 四向掛鉤
+      const hg=new THREE.Group();
+      const hk=cyl(.9,16,Mm(MAT.brass),0,156,9,8);
+      hk.rotation.x=Math.PI/2+.35;hg.add(hk);
+      hg.rotation.y=i*Math.PI/2;add(hg);
+    }
+    const tp=new THREE.Mesh(new THREE.SphereGeometry(2.6,10,8),Mm(MAT.brass));
+    tp.position.y=167;add(tp);                                   // 頂珠
   }else if(f.t==="shelf"){
     const H=182,BOOK=["#b5432f","#6e8b5e","#b3873f","#3f5673","#8a4f3d","#736c5f"];
     add(box(3,H,c.d,wood,-c.w/2+1.5,H/2,0));                     // 側板
@@ -1123,8 +1251,8 @@ function build3d(f){
     add(cyl(1.3,16,Mm(MAT.brass),c.w/2-12,54,0,10));             // 龍頭立管
     const sp2=cyl(1.1,10,Mm(MAT.brass),c.w/2-17,60,0,8);
     sp2.rotation.z=Math.PI/2;add(sp2);                           // 出水嘴
-  }else{ // 自訂傢俱：以圓角箱體呈現
-    const h=Math.min(90,Math.max(25,Math.round(Math.min(c.w,c.d)*.7)));
+  }else{ // 自訂傢俱：以圓角箱體呈現（可自訂高度）
+    const h=c.h||Math.min(90,Math.max(25,Math.round(Math.min(c.w,c.d)*.7)));
     add(rbox(c.w,h,c.d,5,M(c.c,.8),0,h/2,0));
   }
   return g;
@@ -1135,6 +1263,10 @@ function sync3d(){
   while(furnGroup.children.length)furnGroup.remove(furnGroup.children[0]);
   F.forEach(f=>{
     const c=cat(f),g=build3d(f),b=bb(f);
+    if(f.h>0&&f.t!=="custom"){                 // 自訂高度：等比縮放 Y
+      const bx=new THREE.Box3().setFromObject(g);
+      if(bx.max.y>1)g.scale.y=f.h/bx.max.y;
+    }
     g.rotation.y=-f.rot*Math.PI/180;
     g.position.set(f.x+b.w/2,0,f.y+b.d/2);
     furnGroup.add(g);
